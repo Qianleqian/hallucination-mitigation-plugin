@@ -59,6 +59,14 @@ class DualModeEngine:
         if pre.is_high_risk and mode == "fast":
             await self._notify("检测到高风险领域，强制切换精准模式")
             mode = "precision"
+
+        # 逻辑/常识类 → 专用提示词路径（不走检索），用户手动覆盖除外
+        if mode == "logic" and pre.is_logic_question:
+            result = await self._logic_mode(pre)
+            result["latency_ms"] = (time.time() - start_time) * 1000
+            result["mode"] = "logic"
+            return result
+
         effective_mode = WorkMode(mode)
 
         # -- 阶段2：执行推理 --
@@ -100,6 +108,47 @@ class DualModeEngine:
         else:
             async for chunk in self._precision_mode_stream(pre):
                 yield chunk
+
+    # ===================================================
+    # 逻辑模式（新增）—— 不走检索，专用提示词直答
+    # ===================================================
+
+    async def _logic_mode(self, pre: PreprocessResult) -> dict:
+        """
+        逻辑/常识类专用路径:
+        - 使用逻辑判断专用提示词约束模型行为
+        - 不触发多源搜索（更快，且避免引入干扰信息）
+        - 不查缓存（逻辑问题的上下文依赖性低）
+        """
+        await self._notify(
+            f"逻辑模式: 专用提示词路径 | 触发: {', '.join(pre.logic_indicators)}"
+        )
+
+        system_prompt = pre.logic_prompt or (
+            "你是一个逻辑判断专家。请用常识和逻辑直接作答，"
+            "一句话给结论，不要展开理论讨论。"
+        )
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": pre.cleaned_query},
+        ]
+        resp = await self.llm.chat(messages, temperature=0.05, max_tokens=400)
+
+        return {
+            "answer": resp.content,
+            "confidence": 0.85,
+            "sources": [],
+            "cache_hit": False,
+            "verified": False,
+            "logic_indicators": pre.logic_indicators,
+        }
+
+    async def _logic_mode_stream(self, pre: PreprocessResult):
+        yield {"type": "status", "data": f"逻辑判断: {', '.join(pre.logic_indicators)}"}
+        result = await self._logic_mode(pre)
+        yield {"type": "answer", "data": result["answer"]}
+        yield {"type": "done", "data": result}
 
     # ===================================================
     # 快速模式（2.1）
