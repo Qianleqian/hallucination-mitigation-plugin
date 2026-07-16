@@ -1,0 +1,40 @@
+# LLM Hallucination Mitigation Plugin - Dependencies
+
+# Core LLM (Qwen via DashScope)
+dashscope>=1.20.0
+
+# Vector Database
+chromadb>=0.5.0
+
+# Embeddings
+sentence-transformers>=3.0.0
+
+# Web Search
+duckduckgo-search>=6.0.0
+httpx>=0.27.0
+
+# NLI Model for Fact Verification
+transformers>=4.44.0
+torch>=2.0.0
+
+# Data Processing
+numpy>=1.26.0
+pandas>=2.2.0
+
+# Async & WebSocket
+websockets>=13.0.0
+aiohttp>=3.10.0
+
+# Configuration
+pydantic>=2.8.0
+pydantic-settings>=2.4.0
+
+# Utilities
+tqdm>=4.66.0
+rich>=13.0.0
+
+# Weight Merging (for offline learning)
+peft>=0.12.0
+
+# Evaluation
+scikit-learn>=1.5.0
